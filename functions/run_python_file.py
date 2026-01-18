@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 def run_python_file(working_directory, file_path, args=None):
     
@@ -17,3 +18,11 @@ def run_python_file(working_directory, file_path, args=None):
     if not os.path.commonpath([abs_working_dir, target_file]) == abs_working_dir:
         return f'Error: Cannot execute "{file_path}" as it is outside the permitted working directory'
         
+    # Run the file
+    command = ["python", target_file]
+    command.extend(args)
+    process = subprocess.run(command,
+                             cwd=abs_working_dir, 
+                             capture_output=True, 
+                             text=True, 
+                             timeout=30)
