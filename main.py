@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import Client
 from google.genai import types
-
+from prompts import system_prompt
 
 
 load_dotenv()
