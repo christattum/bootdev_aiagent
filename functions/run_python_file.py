@@ -22,7 +22,8 @@ def run_python_file(working_directory, file_path, args=None):
             
         # Run the file
         command = ["python", target_file]
-        command.extend(args)
+        if args:
+            command.extend(args)
         process = subprocess.run(command,
                                 cwd=abs_working_dir, 
                                 capture_output=True, 
