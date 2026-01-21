@@ -38,6 +38,10 @@ if args.verbose:
         raise Exception("Response has missing usage_metadata")
 
 
-
-
-print(response.text)
+if response.function_calls:
+    output = []
+    for function_call in response.function_calls:
+        output.append(f"Calling function: {function_call.name}({function_call.args})")
+    print("\n".join(output))
+else:
+    print(response.text)
