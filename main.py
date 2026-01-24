@@ -41,13 +41,22 @@ if args.verbose:
 if response.function_calls:
     print(response.function_calls)
     output = []
+    function_call_results = []
     for function_call in response.function_calls:
         # append the function call to the result
         output.append(f"Calling function: {function_call.name}({function_call.args})")
         # actually call the function
         # uv run main.py "read the contents of main.py"
-        call_function_response = call_function(function_call, args.verbose)
-        print(call_function_response)
+        call_function_result = call_function(function_call, args.verbose)
+        if call_function_result.parts == None or len(call_function_result.parts) == 0:
+            raise Exception("No parts returned")
+        
+        if call_function_result.parts[0] == None:
+            raise Exception("First part is None")
+        
+        function_call_results.append(call_function_result.parts[0])
+        if args.verbose:
+            output.append(f"-> {call_function_result.parts[0].function_response.response}")
         
     print("\n".join(output))
 else:
