@@ -25,6 +25,7 @@ def call_function(function_call, verbose=False):
     else:
         print(f" - Calling function: {function_call.name}")
     
+    # check function exists
     function_name = function_call.name or ""
     if function_name not in function_map:
         return types.Content(
@@ -37,11 +38,14 @@ def call_function(function_call, verbose=False):
             ],
         )  
 
+    # get args
     args = dict(function_call.args) if function_call.args else {}
     args["working_directory"] = "./calculator"
-    func = function_map[function_name]
-    function_result = func(**args)
 
+    # call function
+    function_result = function_map[function_name](**args)
+
+    # return result
     return types.Content(
         role="tool",
         parts=[
