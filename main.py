@@ -5,7 +5,7 @@ from google import genai
 from google.genai import Client
 from google.genai import types
 from prompts import system_prompt
-from call_function import available_functions
+from call_function import available_functions, call_function
 
 
 load_dotenv()
@@ -39,9 +39,16 @@ if args.verbose:
 
 
 if response.function_calls:
+    print(response.function_calls)
     output = []
     for function_call in response.function_calls:
+        # append the function call to the result
         output.append(f"Calling function: {function_call.name}({function_call.args})")
+        # actually call the function
+        # uv run main.py "read the contents of main.py"
+        call_function_response = call_function(function_call, args.verbose)
+        print(call_function_response)
+        
     print("\n".join(output))
 else:
     print(response.text)
