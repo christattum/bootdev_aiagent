@@ -22,7 +22,6 @@ messages = [types.Content(role="user", parts=[types.Part(text=args.user_prompt)]
 
 client = genai.Client(api_key=api_key)
 
-
 for _ in range(20):
 
     response = client.models.generate_content(
@@ -32,6 +31,12 @@ for _ in range(20):
             tools=[available_functions],
             system_instruction=system_prompt)
     )
+
+    # track response messages
+    if response.candidates:
+        for candidate in response.candidates:
+            messages.append(candidate.content)
+        
 
     if args.verbose:
         print(f"User prompt: {args.user_prompt}")
