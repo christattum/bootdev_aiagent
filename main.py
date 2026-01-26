@@ -38,10 +38,14 @@ for _ in range(MAX_ITERATIONS):
     )
 
     # track response messages
+    print(response.candidates)
     if response.candidates:
         for candidate in response.candidates:
+            print("HERE")
+            print(candidate.content)
             messages.append(candidate.content)
         
+    print(messages)
 
     if args.verbose:
         print(f"User prompt: {args.user_prompt}")
