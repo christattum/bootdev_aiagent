@@ -1,5 +1,6 @@
 import os
 import argparse
+import sys
 from dotenv import load_dotenv
 from google import genai
 from google.genai import Client
@@ -7,6 +8,7 @@ from google.genai import types
 from prompts import system_prompt
 from call_function import available_functions, call_function
 
+MAX_ITERATIONS = 20
 
 load_dotenv()
 api_key = os.environ.get("GEMINI_API_KEY")
@@ -22,7 +24,10 @@ messages = [types.Content(role="user", parts=[types.Part(text=args.user_prompt)]
 
 client = genai.Client(api_key=api_key)
 
-for _ in range(20):
+# the process will only complete when no more function call responses are received
+completed = False
+
+for _ in range(MAX_ITERATIONS):
 
     response = client.models.generate_content(
         model="gemini-2.5-flash",
@@ -66,7 +71,18 @@ for _ in range(20):
             function_call_results.append(call_function_result.parts[0])
             if args.verbose:
                 output.append(f"-> {call_function_result.parts[0].function_response.response}")
-            
+
+        # append list of all function call results to messages
+        messages.append(types.Content(role="user", parts=function_call_results))
+
         print("\n".join(output))
     else:
         print(response.text)
+        ## if there are no function call results, then we're done, so break out of agent loop
+        completed = True
+        break
+
+    # check if max loop iterations were reached without process completing
+    if not completed:
+        print(f"Agent was unable to complete process after {MAX_ITERATIONS} iterations.")
+        sys.exit(1)
