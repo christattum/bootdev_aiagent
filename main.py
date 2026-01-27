@@ -1,63 +1,84 @@
-import os
 import argparse
+import os
+import sys
+
 from dotenv import load_dotenv
 from google import genai
-from google.genai import Client
 from google.genai import types
-from prompts import system_prompt
+
 from call_function import available_functions, call_function
+from config import MAX_ITERATIONS
+from prompts import system_prompt
 
 
-load_dotenv()
-api_key = os.environ.get("GEMINI_API_KEY")
-if api_key == None:
-    raise Exception("API key not set")
+def main():
+    parser = argparse.ArgumentParser(description="AI Code Assistant")
+    parser.add_argument("user_prompt", type=str, help="Prompt to send to Gemini")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
+    args = parser.parse_args()
 
-parser = argparse.ArgumentParser(description="Chatbot")
-parser.add_argument("user_prompt", type=str, help="User prompt")
-parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
-args = parser.parse_args()
+    load_dotenv()
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY environment variable not set")
 
-messages = [types.Content(role="user", parts=[types.Part(text=args.user_prompt)])]
+    client = genai.Client(api_key=api_key)
+    messages = [types.Content(role="user", parts=[types.Part(text=args.user_prompt)])]
+    if args.verbose:
+        print(f"User prompt: {args.user_prompt}\n")
 
-client = genai.Client(api_key=api_key)
-response = client.models.generate_content(
-    model="gemini-2.5-flash",
-    contents=messages,
-    config=types.GenerateContentConfig(
-        tools=[available_functions],
-        system_instruction=system_prompt)
-)
+    for _ in range(MAX_ITERATIONS):
+        try:
+            final_response = generate_content(client, messages, args.verbose)
+            if final_response:
+                print("Final response:")
+                print(final_response)
+                return
+        except Exception as e:
+            print(f"Error in generate_content: {e}")
 
-if args.verbose:
-    print(f"User prompt: {args.user_prompt}")
-    if response.usage_metadata != None:
-        print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
-        print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
-    else:
-        raise Exception("Response has missing usage_metadata")
+    print(f"Maximum iterations ({MAX_ITERS}) reached")
+    sys.exit(1)
 
 
-if response.function_calls:
-    print(response.function_calls)
-    output = []
-    function_call_results = []
+def generate_content(client, messages, verbose):
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=messages,
+        config=types.GenerateContentConfig(
+            tools=[available_functions], system_instruction=system_prompt
+        ),
+    )
+    if not response.usage_metadata:
+        raise RuntimeError("Gemini API response appears to be malformed")
+
+    if verbose:
+        print("Prompt tokens:", response.usage_metadata.prompt_token_count)
+        print("Response tokens:", response.usage_metadata.candidates_token_count)
+
+    if response.candidates:
+        for candidate in response.candidates:
+            if candidate.content:
+                messages.append(candidate.content)
+
+    if not response.function_calls:
+        return response.text
+
+    function_responses = []
     for function_call in response.function_calls:
-        # append the function call to the result
-        output.append(f"Calling function: {function_call.name}({function_call.args})")
-        # actually call the function
-        # uv run main.py "read the contents of main.py"
-        call_function_result = call_function(function_call, args.verbose)
-        if call_function_result.parts == None or len(call_function_result.parts) == 0:
-            raise Exception("No parts returned")
-        
-        if call_function_result.parts[0] == None:
-            raise Exception("First part is None")
-        
-        function_call_results.append(call_function_result.parts[0])
-        if args.verbose:
-            output.append(f"-> {call_function_result.parts[0].function_response.response}")
-        
-    print("\n".join(output))
-else:
-    print(response.text)
+        result = call_function(function_call, verbose)
+        if (
+            not result.parts
+            or not result.parts[0].function_response
+            or not result.parts[0].function_response.response
+        ):
+            raise RuntimeError(f"Empty function response for {function_call.name}")
+        if verbose:
+            print(f"-> {result.parts[0].function_response.response}")
+        function_responses.append(result.parts[0])
+
+    messages.append(types.Content(role="user", parts=function_responses))
+
+
+if __name__ == "__main__":
+    main()
